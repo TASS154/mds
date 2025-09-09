@@ -146,7 +146,7 @@ export default function DiceRoller({ character }: DiceRollerProps) {
         <div className="space-y-2">
           <h4 className="text-sm font-medium text-gray-300">Recent Rolls</h4>
           <div className="max-h-32 overflow-y-auto space-y-1">
-            {state.session.diceRolls.slice(-5).reverse().map((roll) => (
+            {state.diceRolls.slice(-5).reverse().map((roll) => (
               <div key={roll.id} className="text-xs text-gray-400 flex justify-between">
                 <span>{roll.playerName}: {roll.attribute}</span>
                 <span className={getResultColor(roll)}>

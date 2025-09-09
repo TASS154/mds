@@ -7,19 +7,21 @@ import CharacterCreation from './CharacterCreation';
 import DiceRoller from './DiceRoller';
 import CombatTracker from './CombatTracker';
 import BindingVowManager from './BindingVowManager';
+import SessionManager from './SessionManager';
 
 type TabType = 'character' | 'dice' | 'combat' | 'vows' | 'settings';
 
 export default function GameDashboard() {
-  const { state, login } = useGame();
+  const { state, logout } = useGame();
   const [activeTab, setActiveTab] = useState<TabType>('character');
   const [showCharacterCreation, setShowCharacterCreation] = useState(false);
 
   const userCharacter = state.characters.find(char => char.id === state.user?.characterId);
   const needsCharacter = state.user?.role === 'player' && !userCharacter;
+  const needsSession = !state.session;
 
   const handleLogout = () => {
-    window.location.reload();
+    logout();
   };
 
   const tabs = [
@@ -83,6 +85,11 @@ export default function GameDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {needsSession ? (
+          <div className="max-w-2xl mx-auto">
+            <SessionManager />
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">
@@ -251,6 +258,7 @@ export default function GameDashboard() {
             </motion.div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );
