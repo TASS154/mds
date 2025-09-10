@@ -1,14 +1,11 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 import { Character, GameSession, User, DiceRoll, BindingVow } from '../types';
 import { toast } from 'react-hot-toast';
-import { supabase, signIn, signUp, signOut, getCurrentUser } from '../lib/supabase';
-import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
+import { supabase, createUser, getUserByName, updateUserActivity } from '../lib/supabase';
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription';
 
 interface GameState {
   user: User | null;
-  supabaseUser: SupabaseUser | null;
   session: GameSession | null;
   characters: Character[];
   connected: boolean;
@@ -18,7 +15,6 @@ interface GameState {
 
 type GameAction =
   | { type: 'SET_USER'; payload: User }
-  | { type: 'SET_SUPABASE_USER'; payload: SupabaseUser | null }
   | { type: 'SET_SESSION'; payload: GameSession }
   | { type: 'SET_CHARACTERS'; payload: Character[] }
   | { type: 'UPDATE_CHARACTER'; payload: Character }
@@ -32,7 +28,6 @@ type GameAction =
 
 const initialState: GameState = {
   user: null,
-  supabaseUser: null,
   session: null,
   characters: [],
   connected: false,
@@ -44,8 +39,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'SET_USER':
       return { ...state, user: action.payload };
-    case 'SET_SUPABASE_USER':
-      return { ...state, supabaseUser: action.payload };
     case 'SET_SESSION':
       return { ...state, session: action.payload };
     case 'SET_CHARACTERS':
@@ -95,7 +88,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
 interface GameContextType {
   state: GameState;
-  login: (email: string, password: string, name: string, role: 'player' | 'master') => Promise<void>;
+  login: (name: string, role: 'player' | 'master') => Promise<void>;
   logout: () => Promise<void>;
   createCharacter: (character: Omit<Character, 'id'>) => Promise<void>;
   updateCharacter: (character: Character) => void;
@@ -113,20 +106,18 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
-  const { user: supabaseUser, loading: authLoading } = useSupabaseAuth();
 
-  // Set Supabase user
+  // Set connected state
   useEffect(() => {
-    dispatch({ type: 'SET_SUPABASE_USER', payload: supabaseUser });
     dispatch({ type: 'SET_CONNECTED', payload: true });
-  }, [supabaseUser]);
+  }, []);
 
-  // Load session and characters when user is authenticated
+  // Load session and characters when user is set
   useEffect(() => {
-    if (supabaseUser && state.user) {
+    if (state.user) {
       loadUserData();
     }
-  }, [supabaseUser, state.user]);
+  }, [state.user]);
 
   // Realtime subscriptions
   useRealtimeSubscription({
@@ -172,45 +163,56 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   });
 
   const loadUserData = async () => {
-    if (!supabaseUser) return;
+    if (!state.user) return;
 
     try {
-      // Load user's character and session
+      // Load user's characters and sessions
       const { data: characters } = await supabase
         .from('characters')
-        .select('*, game_sessions(*)')
-        .eq('user_id', supabaseUser.id)
-        .single();
+        .select('*')
+        .eq('user_id', state.user.id);
 
       if (characters) {
-        const character = transformDbCharacter(characters);
-        const session = transformDbSession(characters.game_sessions);
-        
-        dispatch({ type: 'SET_SESSION', payload: session });
-        dispatch({ type: 'SET_CHARACTERS', payload: [character] });
-        
-        // Load all characters in the session
-        const { data: allCharacters } = await supabase
-          .from('characters')
-          .select('*')
-          .eq('session_id', session.id);
+        const transformedCharacters = characters.map(transformDbCharacter);
+        dispatch({ type: 'SET_CHARACTERS', payload: transformedCharacters });
 
-        if (allCharacters) {
-          const transformedCharacters = allCharacters.map(transformDbCharacter);
-          dispatch({ type: 'SET_CHARACTERS', payload: transformedCharacters });
-        }
+        // If user has characters, load their session
+        if (characters.length > 0) {
+          const sessionId = characters[0].session_id;
+          const { data: session } = await supabase
+            .from('game_sessions')
+            .select('*')
+            .eq('id', sessionId)
+            .single();
 
-        // Load dice rolls
-        const { data: diceRolls } = await supabase
-          .from('dice_rolls')
-          .select('*')
-          .eq('session_id', session.id)
-          .order('created_at', { ascending: false })
-          .limit(50);
+          if (session) {
+            const transformedSession = transformDbSession(session);
+            dispatch({ type: 'SET_SESSION', payload: transformedSession });
 
-        if (diceRolls) {
-          const transformedRolls = diceRolls.map(transformDbDiceRoll);
-          dispatch({ type: 'SET_DICE_ROLLS', payload: transformedRolls });
+            // Load all characters in the session
+            const { data: allCharacters } = await supabase
+              .from('characters')
+              .select('*')
+              .eq('session_id', sessionId);
+
+            if (allCharacters) {
+              const allTransformed = allCharacters.map(transformDbCharacter);
+              dispatch({ type: 'SET_CHARACTERS', payload: allTransformed });
+            }
+
+            // Load dice rolls
+            const { data: diceRolls } = await supabase
+              .from('dice_rolls')
+              .select('*')
+              .eq('session_id', sessionId)
+              .order('created_at', { ascending: false })
+              .limit(50);
+
+            if (diceRolls) {
+              const transformedRolls = diceRolls.map(transformDbDiceRoll);
+              dispatch({ type: 'SET_DICE_ROLLS', payload: transformedRolls });
+            }
+          }
         }
       }
     } catch (error) {
@@ -218,53 +220,52 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string, name: string, role: 'player' | 'master') => {
+  const login = async (name: string, role: 'player' | 'master') => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
-      // Try to sign in first
-      let { data, error } = await signIn(email, password);
-      
-      // If sign in fails, try to sign up
-      if (error && error.message.includes('Invalid login credentials')) {
-        const signUpResult = await signUp(email, password, name);
-        data = signUpResult.data;
-        error = signUpResult.error;
+      // Try to get existing user
+      let { data: userData, error } = await getUserByName(name);
+
+      // If user doesn't exist, create new one
+      if (error && error.code === 'PGRST116') {
+        const createResult = await createUser(name, role);
+        userData = createResult.data;
+        error = createResult.error;
       }
 
-      if (error) {
-        throw error;
-      }
-
-      if (!data.user) {
-        throw new Error('Authentication failed');
+      if (error || !userData) {
+        throw new Error('Falha ao entrar no jogo');
       }
 
       const user: User = {
-        id: data.user.id,
-        name,
-        role,
+        id: userData.id,
+        name: userData.name,
+        role: userData.role as 'player' | 'master',
       };
 
       dispatch({ type: 'SET_USER', payload: user });
-      toast.success(`Logged in as ${role}`);
+      toast.success(`Logado como ${role === 'player' ? 'Jogador' : 'Mestre'}`);
+      
+      // Update user activity
+      await updateUserActivity(userData.id);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Login failed');
+      toast.error(error instanceof Error ? error.message : 'Falha no login');
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
   const logout = async () => {
-    await signOut();
     dispatch({ type: 'SET_USER', payload: null });
     dispatch({ type: 'SET_SESSION', payload: null });
     dispatch({ type: 'SET_CHARACTERS', payload: [] });
+    dispatch({ type: 'SET_DICE_ROLLS', payload: [] });
   };
 
   const createCharacter = async (characterData: Omit<Character, 'id'>) => {
-    if (!supabaseUser || !state.session) {
-      toast.error('Must be logged in and in a session to create character');
+    if (!state.user || !state.session) {
+      toast.error('Deve estar logado e em uma sessão para criar personagem');
       return;
     }
 
@@ -273,7 +274,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         .from('characters')
         .insert({
           session_id: state.session.id,
-          user_id: supabaseUser.id,
+          user_id: state.user.id,
           name: characterData.name,
           level: characterData.level,
           attributes: characterData.attributes,
@@ -298,15 +299,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: 'SET_USER', payload: { ...state.user, characterId: character.id } });
       }
 
-      toast.success('Character created successfully!');
+      // Update user's character count
+      await supabase
+        .from('users')
+        .update({ characters_created: supabase.rpc('increment', { x: 1 }) })
+        .eq('id', state.user.id);
+
+      toast.success('Personagem criado com sucesso!');
     } catch (error) {
-      console.error('Error creating character:', error);
-      toast.error('Failed to create character');
+      console.error('Erro ao criar personagem:', error);
+      toast.error('Falha ao criar personagem');
     }
   };
 
   const updateCharacter = (character: Character) => {
-    if (!supabaseUser) return;
+    if (!state.user) return;
 
     // Update in Supabase
     supabase
@@ -329,7 +336,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       .then(({ error }) => {
         if (error) {
           console.error('Error updating character:', error);
-          toast.error('Failed to update character');
+          toast.error('Falha ao atualizar personagem');
         }
       });
   };
@@ -340,8 +347,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     attribute?: keyof Character['attributes'],
     dc?: number
   ): Promise<DiceRoll> => {
-    if (!supabaseUser || !state.session) {
-      throw new Error('Must be logged in and in a session to roll dice');
+    if (!state.user || !state.session) {
+      throw new Error('Deve estar logado e em uma sessão para rolar dados');
     }
 
     const sides = parseInt(type.substring(1));
@@ -353,7 +360,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     const roll: DiceRoll = {
       id: '', // Will be set by database
-      playerId: supabaseUser.id,
+      playerId: state.user.id,
       playerName: state.user?.name || '',
       type,
       result,
@@ -371,7 +378,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         .from('dice_rolls')
         .insert({
           session_id: state.session.id,
-          player_id: supabaseUser.id,
+          user_id: state.user.id,
           player_name: state.user?.name || '',
           type,
           result,
@@ -552,14 +559,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   };
 
   const createSession = async (name: string) => {
-    if (!supabaseUser) return;
+    if (!state.user) return;
 
     try {
       const { data, error } = await supabase
         .from('game_sessions')
         .insert({
           name,
-          master_id: supabaseUser.id,
+          master_user_id: state.user.id,
         })
         .select()
         .single();
@@ -568,10 +575,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const session = transformDbSession(data);
       dispatch({ type: 'SET_SESSION', payload: session });
-      toast.success('Session created successfully!');
+      toast.success('Sessão criada com sucesso!');
     } catch (error) {
       console.error('Error creating session:', error);
-      toast.error('Failed to create session');
+      toast.error('Falha ao criar sessão');
     }
   };
 
@@ -622,7 +629,7 @@ function transformDbSession(dbSession: any): GameSession {
   return {
     id: dbSession.id,
     name: dbSession.name,
-    masterId: dbSession.master_id,
+    masterId: dbSession.master_user_id || dbSession.master_id,
     players: [], // Will be populated from characters
     characters: [], // Will be loaded separately
     combat: dbSession.combat_state || {
@@ -638,7 +645,7 @@ function transformDbSession(dbSession: any): GameSession {
 function transformDbDiceRoll(dbRoll: any): DiceRoll {
   return {
     id: dbRoll.id,
-    playerId: dbRoll.player_id,
+    playerId: dbRoll.user_id || dbRoll.player_id,
     playerName: dbRoll.player_name,
     type: dbRoll.type as DiceRoll['type'],
     result: dbRoll.result,

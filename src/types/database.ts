@@ -1,11 +1,43 @@
 export interface Database {
   public: {
     Tables: {
+      users: {
+        Row: {
+          id: string;
+          name: string;
+          role: 'player' | 'master';
+          characters_created: number;
+          sessions_joined: any;
+          last_active: string;
+          preferences: any;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          role: 'player' | 'master';
+          characters_created?: number;
+          sessions_joined?: any;
+          last_active?: string;
+          preferences?: any;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          role?: 'player' | 'master';
+          characters_created?: number;
+          sessions_joined?: any;
+          last_active?: string;
+          preferences?: any;
+          created_at?: string;
+        };
+      };
       game_sessions: {
         Row: {
           id: string;
           name: string;
-          master_id: string;
+          master_user_id: string;
           combat_state: any;
           created_at: string;
           updated_at: string;
@@ -13,7 +45,7 @@ export interface Database {
         Insert: {
           id?: string;
           name: string;
-          master_id: string;
+          master_user_id: string;
           combat_state?: any;
           created_at?: string;
           updated_at?: string;
@@ -21,7 +53,7 @@ export interface Database {
         Update: {
           id?: string;
           name?: string;
-          master_id?: string;
+          master_user_id?: string;
           combat_state?: any;
           created_at?: string;
           updated_at?: string;
@@ -137,7 +169,7 @@ export interface Database {
         Row: {
           id: string;
           session_id: string;
-          player_id: string;
+          user_id: string;
           player_name: string;
           type: string;
           result: number;
@@ -152,7 +184,7 @@ export interface Database {
         Insert: {
           id?: string;
           session_id: string;
-          player_id: string;
+          user_id: string;
           player_name: string;
           type: string;
           result: number;
@@ -167,7 +199,7 @@ export interface Database {
         Update: {
           id?: string;
           session_id?: string;
-          player_id?: string;
+          user_id?: string;
           player_name?: string;
           type?: string;
           result?: number;

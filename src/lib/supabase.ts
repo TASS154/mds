@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../types/database';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -8,7 +7,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: {
     params: {
       eventsPerSecond: 10,
@@ -16,34 +15,37 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Auth helpers
-export const signUp = async (email: string, password: string, name: string) => {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        name,
-      },
-    },
-  });
+// Simple user management helpers
+export const createUser = async (name: string, role: 'player' | 'master') => {
+  const { data, error } = await supabase
+    .from('users')
+    .insert({ name, role })
+    .select()
+    .single();
   return { data, error };
 };
 
-export const signIn = async (email: string, password: string) => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+export const getUserByName = async (name: string) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('name', name)
+    .single();
   return { data, error };
 };
 
-export const signOut = async () => {
-  const { error } = await supabase.auth.signOut();
+export const updateUserActivity = async (userId: string) => {
+  const { error } = await supabase
+    .from('users')
+    .update({ last_active: new Date().toISOString() })
+    .eq('id', userId);
   return { error };
 };
 
-export const getCurrentUser = async () => {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  return { user, error };
+export const updateUserPreferences = async (userId: string, preferences: any) => {
+  const { error } = await supabase
+    .from('users')
+    .update({ preferences })
+    .eq('id', userId);
+  return { error };
 };
