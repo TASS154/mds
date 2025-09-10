@@ -145,39 +145,3 @@ export default function Login() {
     </div>
   );
 }
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          <motion.button
-            type="submit"
-            disabled={state.loading || !email.trim() || !name.trim() || !password.trim()}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {state.loading ? 'Entering...' : 'Enter Game'}
-          </motion.button>
-        </form>
-
-        <div className="mt-8 text-center">
-          <div className="flex items-center justify-center space-x-2 text-gray-400">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm">
-              {state.connected ? 'Connected to server' : 'Connecting...'}
-            </span>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
