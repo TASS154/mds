@@ -30,7 +30,7 @@ export const getUserByName = async (name: string) => {
     .from('users')
     .select('*')
     .eq('name', name)
-    .single();
+    .maybeSingle();
   return { data, error };
 };
 

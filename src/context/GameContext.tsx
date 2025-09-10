@@ -228,7 +228,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       let { data: userData, error } = await getUserByName(name);
 
       // If user doesn't exist, create new one
-      if (error && error.code === 'PGRST116') {
+      if (!userData && !error) {
         const createResult = await createUser(name, role);
         userData = createResult.data;
         error = createResult.error;
