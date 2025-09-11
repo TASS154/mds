@@ -20,6 +20,13 @@ export default function GameDashboard() {
   const needsCharacter = state.user?.role === 'player' && !userCharacter;
   const needsSession = !state.session;
 
+  // Close character creation when character is created
+  React.useEffect(() => {
+    if (showCharacterCreation && userCharacter) {
+      setShowCharacterCreation(false);
+    }
+  }, [userCharacter, showCharacterCreation]);
+
   const handleLogout = () => {
     logout();
   };
@@ -90,7 +97,7 @@ export default function GameDashboard() {
             <SessionManager />
           </div>
         ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-gray-900/80 backdrop-blur-sm rounded-2xl p-6 border border-purple-500/20">
@@ -120,6 +127,10 @@ export default function GameDashboard() {
               {state.session && (
                 <div className="mt-8 pt-6 border-t border-gray-700">
                   <h3 className="text-sm font-medium text-gray-400 mb-3">Session Info</h3>
+                  <div className="space-y-2 text-sm mb-4">
+                    <div className="text-xs text-gray-500">Session Name:</div>
+                    <div className="text-white font-medium">{state.session.name}</div>
+                  </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Players:</span>

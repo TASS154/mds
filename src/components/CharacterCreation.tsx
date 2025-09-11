@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Minus, Sparkles, Wand2, Shield, Heart } from 'lucide-react';
+import { Plus, Minus, Sparkles, Wand2, Shield, Heart, ArrowLeft } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { Character, InnateAbility, MagicProficiency, PersonalityTrait } from '../types';
 
@@ -60,8 +60,9 @@ const PERSONALITY_CATEGORIES = [
 ] as const;
 
 export default function CharacterCreation() {
-  const { createCharacter } = useGame();
+  const { createCharacter, state } = useGame();
   const [step, setStep] = useState(1);
+  const [isCreating, setIsCreating] = useState(false);
   const [character, setCharacter] = useState<Omit<Character, 'id'>>({
     name: '',
     level: 1,
@@ -119,6 +120,7 @@ export default function CharacterCreation() {
   };
 
   const handleSubmit = async () => {
+    setIsCreating(true);
     // Calculate resources based on attributes
     const updatedCharacter = {
       ...character,
@@ -143,6 +145,7 @@ export default function CharacterCreation() {
     };
 
     await createCharacter(updatedCharacter);
+    setIsCreating(false);
   };
 
   const renderStep = () => {

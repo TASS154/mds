@@ -206,4 +206,8 @@ export interface User {
   name: string;
   role: 'player' | 'master';
   characterId?: string;
+  sessions_joined?: string[];
+  characters_created?: number;
+  last_active?: string;
+  preferences?: any;
 }

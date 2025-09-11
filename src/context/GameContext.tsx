@@ -538,7 +538,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   };
 
   const joinSession = async (sessionId: string) => {
-    if (!supabaseUser) return;
+    if (!state.user) return;
 
     try {
       const { data: session, error } = await supabase
@@ -551,6 +551,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const transformedSession = transformDbSession(session);
       dispatch({ type: 'SET_SESSION', payload: transformedSession });
+      
+      // Update user's sessions_joined array
+      const currentSessions = state.user.sessions_joined || [];
+      if (!currentSessions.includes(sessionId)) {
+        await supabase
+          .from('users')
+          .update({ 
+            sessions_joined: [...currentSessions, sessionId],
+            last_active: new Date().toISOString()
+          })
+          .eq('id', state.user.id);
+      }
+      
       toast.success('Joined session successfully!');
     } catch (error) {
       console.error('Error joining session:', error);
@@ -575,6 +588,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const session = transformDbSession(data);
       dispatch({ type: 'SET_SESSION', payload: session });
+      
+      // Update user's sessions_joined array
+      const currentSessions = state.user.sessions_joined || [];
+      await supabase
+        .from('users')
+        .update({ 
+          sessions_joined: [...currentSessions, data.id],
+          last_active: new Date().toISOString()
+        })
+        .eq('id', state.user.id);
+      
       toast.success('Sessão criada com sucesso!');
     } catch (error) {
       console.error('Error creating session:', error);

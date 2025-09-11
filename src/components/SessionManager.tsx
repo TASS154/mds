@@ -24,8 +24,10 @@ export default function SessionManager() {
     if (!sessionId.trim()) return;
     
     await joinSession(sessionId);
-    setShowJoinForm(false);
-    setSessionId('');
+    if (state.session) {
+      setShowJoinForm(false);
+      setSessionId('');
+    }
   };
 
   if (state.session) {
@@ -56,6 +58,21 @@ export default function SessionManager() {
             <span className={`font-medium ${state.session.combat.active ? 'text-red-400' : 'text-green-400'}`}>
               {state.session.combat.active ? 'In Combat' : 'Active'}
             </span>
+          </div>
+        </div>
+        
+        <div className="mt-4 p-3 bg-gray-700 rounded-lg">
+          <p className="text-xs text-gray-400 mb-1">Share this Session ID with other players:</p>
+          <div className="flex items-center space-x-2">
+            <code className="flex-1 px-2 py-1 bg-gray-800 rounded text-sm text-white font-mono">
+              {state.session.id}
+            </code>
+            <button
+              onClick={() => navigator.clipboard.writeText(state.session.id)}
+              className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+            >
+              Copy
+            </button>
           </div>
         </div>
       </div>
